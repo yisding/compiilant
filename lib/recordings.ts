@@ -1,4 +1,4 @@
-export const recordings = [
+const recordings = [
   {
     originalText: "My email address is emmafu730@gmail.com.",
     recordingURL:
@@ -39,3 +39,5 @@ export const recordings = [
     laws: [],
   },
 ];
+
+export default recordings;
