@@ -11,6 +11,7 @@ const Speaky = () => {
   const { transcript, resetTranscript } = useSpeechRecognition();
   const [isListening, setIsListening] = useState(false);
   const [recording, setRecording] = useState(null);
+  const [loading, setLoading] = useState(false);
   const microphoneRef = useRef(null);
   if (!SpeechRecognition.browserSupportsSpeechRecognition) {
     return (
@@ -43,6 +44,7 @@ const Speaky = () => {
     setRecording(null);
   };
   const handleOutput = async () => {
+    setLoading(true);
     //json output
     const data = await ky
       .get(`/api/pii?phrase=${encodeURIComponent(transcript)}`, {
@@ -50,11 +52,12 @@ const Speaky = () => {
       })
       .json();
     setRecording(data);
+    setLoading(false);
   };
 
   return (
     <div className="text-center m-24">
-      <div className="flex justify-center border-orange">
+      <div className="flex justify-center">
       <Image
         src={"/microphone.png"}
         className="microphone-icon"
@@ -70,6 +73,7 @@ const Speaky = () => {
           <div className="microphone-result-text">{transcript}</div>
         </div>
       )}
+      {loading && <div>Loading...</div>}
       {recording && (
         <Player
           laws={recording.laws}
