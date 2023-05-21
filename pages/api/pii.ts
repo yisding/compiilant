@@ -8,16 +8,27 @@ const openai = new OpenAIApi(
   })
 );
 
-type Data = {
-  error?: string;
-  grade?: string;
-};
+type Data =
+  | { error: string }
+  | {
+      originalText: string;
+      redactedMarkdown: string;
+      redactedText: string;
+      replacements: [];
+      laws: string[];
+      tags: string[];
+    };
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<Data>
 ) {
   const { phrase } = req.query;
+
+  if (typeof phrase !== "string") {
+    res.status(400).json({ error: "phrase must be a string" });
+    return;
+  }
 
   const prompt = `Identify the Personal Identifiable Information (PII) in the sentence and return it as a JSON along with any laws that could be a concern.
 
@@ -27,6 +38,8 @@ Use this format:
 
 Input: <input>
 PII: <JSON with fields \`type\`, \`value\`, and optionally \`laws\`. type can be "name", "address", "birth_place", "birth_date", "age", "ethnicity" or "health_condition". laws can be "HIPAA", "COPPA", or "GDPR">
+
+RETURN ONLY JSON!
 
 Examples:
 
@@ -43,7 +56,7 @@ Input: I was born in Lyon.
 PII: [{"type": "birth_place", "value": "Lyon"}]
 
 Input: I live in China
-PII: [{"type": "location", "value": "China"}]
+PII: [{"type": "address", "value": "China"}]
 
 Input: I am a Korean Chinese.
 PII: [{"type": "ethnicity", "value": "Korean Chinese"}]
@@ -88,10 +101,16 @@ Input: I have a cold.
 PII: [{"type": "health_condition", "value": "cold“, "laws": "HIPAA"}]
 
 Input: I have a physical disability.
-PII: [{"type": "health_condition", "value": "physical disability", "laws": "HIPAA"}]`;
+PII: [{"type": "health_condition", "value": "physical disability", "laws": "HIPAA"}]
+
+Input: Hello my name is Emma and I walked the El Camino to Santiago
+PII: [{"type": "name", "value": "Emma"}]
+
+Input: hello my name is Neil and I love France
+PII: [{"type": "name", "value": "Neil"}]`;
 
   const { data } = await openai.createChatCompletion({
-    model: "gpt-3.5-turbo",
+    model: "gpt-4",
     messages: [
       { role: "system", content: prompt },
       {
@@ -116,7 +135,40 @@ PII:`,
     return;
   }
 
-  const responseData = JSON.parse(responseJson);
+  console.log(responseJson);
 
-  res.status(200).json(responseData);
+  const responseData = JSON.parse(responseJson.slice(responseJson.indexOf('[')));
+
+  let redactedText = phrase;
+  for (let item of responseData) {
+    redactedText = redactedText.replace(item.value, item.type.toUpperCase());
+  }
+
+  let redactedMarkdown = phrase;
+  for (let item of responseData) {
+    redactedMarkdown = redactedMarkdown.replace(item.value, `[**${item.type.toUpperCase()}**]`);
+  }
+
+  let tags: string[] = [];
+  for (let item of responseData) {
+    if (item.type) {
+      tags.push(item.type);
+    }
+  }
+
+  let laws: string[] = [];
+  for (let item of responseData) {
+    if (item.laws) {
+      laws.push(item.laws);
+    }
+  }
+
+  res.status(200).json({
+    originalText: phrase,
+    redactedMarkdown,
+    redactedText,
+    replacements: responseData,
+    tags: tags,
+    laws: laws,
+  });
 }

@@ -75,10 +75,10 @@ export default function Home() {
           {recordings.map((recording, i) => (
             <Player
               key={i}
-              originalText={recording.originalText}
-              recordingURL={recording.recordingURL}
               laws={recording.laws}
               tags={recording.tags}
+              redactedMarkdown={recording.redactedMarkdown}
+              redactedText={recording.redactedText}
             />
           ))}
         </div>
